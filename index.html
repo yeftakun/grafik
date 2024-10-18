@@ -1,0 +1,211 @@
+<!DOCTYPE html>  
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisasi Data Kartesian</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .data-input {
+            margin-bottom: 10px;
+        }
+        .btn {
+            padding: 5px 10px;
+            margin: 10px 0;
+        }
+        .btn-add, .btn-plot, .btn-copy {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-plot {
+            background-color: #008CBA;
+        }
+        .btn-delete {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        canvas {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Visualisasi Data pada Grafik Kartesian</h2>
+
+    <div id="dataContainer"></div>
+    
+    <button class="btn btn-add" onclick="addDataRow()">Tambahkan Data</button>
+    <button class="btn btn-plot" onclick="plotData()">Buat Visualisasi</button>
+    <button class="btn btn-copy" onclick="copyChartToClipboard()">Copy to Clipboard</button>
+
+    <canvas id="myChart" width="500" height="500"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let dataCount = 0;
+        let dataCoordinates = [];
+
+        function addDataRow() {
+            const container = document.getElementById("dataContainer");
+
+            const div = document.createElement("div");
+            div.classList.add("data-input");
+            div.setAttribute("id", `dataRow${dataCount}`);
+            div.innerHTML = `
+                <label for="x${dataCount}">X:</label>
+                <input type="number" id="x${dataCount}" name="x${dataCount}">
+                <label for="y${dataCount}">Y:</label>
+                <input type="number" id="y${dataCount}" name="y${dataCount}">
+                <label for="shape${dataCount}">Bentuk:</label>
+                <select id="shape${dataCount}" name="shape${dataCount}">
+                    <option value="circle">Bundar Kecil</option>
+                    <option value="crossRot">Tanda Silang (X)</option>
+                </select>
+                <button class="btn btn-delete" onclick="deleteDataRow(${dataCount})">Hapus</button>
+            `;
+            container.appendChild(div);
+            dataCount++;
+        }
+
+        function deleteDataRow(index) {
+            const row = document.getElementById(`dataRow${index}`);
+            if (row) {
+                row.remove();
+            }
+        }
+
+        function plotData() {
+            dataCoordinates = [];
+
+            for (let i = 0; i < dataCount; i++) {
+                const xElement = document.getElementById(`x${i}`);
+                const yElement = document.getElementById(`y${i}`);
+                const shapeElement = document.getElementById(`shape${i}`);
+
+                if (xElement && yElement && shapeElement) {
+                    const x = xElement.value;
+                    const y = yElement.value;
+                    const shape = shapeElement.value;
+
+                    if (x !== "" && y !== "") {
+                        dataCoordinates.push({ x: parseFloat(x), y: parseFloat(y), shape: shape });
+                    }
+                }
+            }
+
+            console.log("Data Coordinates:", dataCoordinates);
+
+            const maxX = Math.max(...dataCoordinates.map(d => d.x));
+            const maxY = Math.max(...dataCoordinates.map(d => d.y));
+            const maxInput = Math.max(maxX, maxY);
+            const adjustedMax = maxInput + maxInput * 0.1;
+
+            const ctx = document.getElementById('myChart').getContext('2d');
+            const scatterData = {
+                datasets: [{
+                    label: 'Koordinat Data',
+                    data: dataCoordinates.map(d => ({ x: d.x, y: d.y })),
+                    pointBackgroundColor: 'blue',
+                    pointBorderColor: 'blue',
+                    pointRadius: dataCoordinates.map(d => d.shape === 'crossRot' ? 12 : 8), // Memperbesar 'x'
+                    pointBorderWidth: dataCoordinates.map(d => d.shape === 'crossRot' ? 5 : 1), // Mempertebal 'x'
+                    pointStyle: dataCoordinates.map(d => {
+                        // if (d.shape === 'cross') return 'rect';
+                        if (d.shape === 'crossRot') return 'crossRot'; // Bentuk silang (X)
+                        return 'circle'; // Default ke bentuk bundar
+                    }),
+                }]
+            };
+
+            const config = {
+                type: 'scatter',
+                data: scatterData,
+                options: {
+                    layout: {
+                        padding: {
+                            left: 20,
+                            right: 20,
+                            top: 20,
+                            bottom: 20
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            min: 0,
+                            max: adjustedMax,
+                            grid: {
+                                borderColor: 'black',
+                                borderWidth: 20 // Mempertebal garis sumbu X
+                            },
+                            ticks: {
+                                font: {
+                                    size: 50 // Memperbesar ukuran angka pada sumbu X
+                                }
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: adjustedMax,
+                            grid: {
+                                borderColor: 'black',
+                                borderWidth: 20 // Mempertebal garis sumbu Y
+                            },
+                            ticks: {
+                                font: {
+                                    size: 50 // Memperbesar ukuran angka pada sumbu Y
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            };
+
+            if (window.myChart instanceof Chart) {
+                window.myChart.destroy();
+            }
+
+            window.myChart = new Chart(ctx, config);
+            console.log("Chart created:", window.myChart);
+        }
+
+        async function copyChartToClipboard() {
+            const canvas = document.getElementById('myChart');
+            const tempCanvas = document.createElement('canvas');
+            const context = tempCanvas.getContext('2d');
+
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            context.drawImage(canvas, 0, 0);
+
+            tempCanvas.toBlob(async (blob) => {
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                    alert("Chart copied to clipboard!");
+                } catch (err) {
+                    console.error("Failed to copy chart:", err);
+                    alert("Failed to copy chart. Please try again.");
+                }
+            }, 'image/png');
+        }
+    </script>
+
+</body>
+</html>
